@@ -1,7 +1,9 @@
 "use client";
+
 import { useState } from "react";
 
 export default function FeeFinderHome() {
+
   const [sent, setSent] = useState(4000);
   const [received, setReceived] = useState(5000);
   const [sentCurrency, setSentCurrency] = useState("GBP");
@@ -10,6 +12,7 @@ export default function FeeFinderHome() {
   const [loading, setLoading] = useState(false);
 
   async function calculate() {
+
     setLoading(true);
 
     const effectiveRate = received / sent;
@@ -17,34 +20,45 @@ export default function FeeFinderHome() {
     let benchmarkRate = 0;
 
     try {
+
       const res = await fetch(
-        `https://api.exchangerate.host/latest?base=${sentCurrency}&symbols=${receivedCurrency}`
+        `https://api.frankfurter.dev/v1/latest?base=${sentCurrency}&symbols=${receivedCurrency}`
       );
+
       const data = await res.json();
-      benchmarkRate = data.rates[receivedCurrency];
+
+      if (data?.rates?.[receivedCurrency]) {
+        benchmarkRate = data.rates[receivedCurrency];
+      }
+
     } catch (e) {
-      console.error(e);
+      console.error("FX API error", e);
     }
 
-    const markup = ((benchmarkRate - effectiveRate) / benchmarkRate) * 100;
-    const hiddenCost = Math.abs((benchmarkRate - effectiveRate) * sent);
+    const markup =
+      ((benchmarkRate - effectiveRate) / benchmarkRate) * 100;
+
+    const hiddenCost =
+      Math.abs((benchmarkRate - effectiveRate) * sent);
 
     setResult({
       effectiveRate,
       benchmarkRate,
       markup,
-      hiddenCost,
+      hiddenCost
     });
 
     setLoading(false);
   }
 
   return (
+
     <main className="min-h-screen bg-gray-50 text-gray-800">
+
       <div className="max-w-6xl mx-auto px-8 py-20 grid md:grid-cols-2 gap-16">
 
-        {/* Left side */}
         <div>
+
           <h1 className="text-5xl font-bold mb-6">
             Check what your bank really charged you
           </h1>
@@ -58,9 +72,9 @@ export default function FeeFinderHome() {
             <li>✔ Independent exchange rate comparison</li>
             <li>✔ Built to increase transparency in currency pricing</li>
           </ul>
+
         </div>
 
-        {/* Calculator */}
         <div className="bg-white rounded-2xl shadow-lg p-8">
 
           <h2 className="text-2xl font-semibold mb-6">
@@ -71,13 +85,16 @@ export default function FeeFinderHome() {
 
             <div>
               <label className="text-sm">You sent</label>
+
               <div className="flex gap-2">
+
                 <input
                   type="number"
                   value={sent}
                   onChange={(e) => setSent(Number(e.target.value))}
                   className="border rounded-lg p-2 w-full"
                 />
+
                 <select
                   value={sentCurrency}
                   onChange={(e) => setSentCurrency(e.target.value)}
@@ -87,18 +104,22 @@ export default function FeeFinderHome() {
                   <option>USD</option>
                   <option>EUR</option>
                 </select>
+
               </div>
             </div>
 
             <div>
               <label className="text-sm">Recipient received</label>
+
               <div className="flex gap-2">
+
                 <input
                   type="number"
                   value={received}
                   onChange={(e) => setReceived(Number(e.target.value))}
                   className="border rounded-lg p-2 w-full"
                 />
+
                 <select
                   value={receivedCurrency}
                   onChange={(e) => setReceivedCurrency(e.target.value)}
@@ -108,6 +129,7 @@ export default function FeeFinderHome() {
                   <option>EUR</option>
                   <option>GBP</option>
                 </select>
+
               </div>
             </div>
 
@@ -121,10 +143,12 @@ export default function FeeFinderHome() {
           </div>
 
           {result && (
+
             <div className="mt-8 border-t pt-6 space-y-3">
 
               <div className="flex justify-between">
                 <span>Exchange rate you received</span>
+
                 <b>
                   1 {sentCurrency} = {result.effectiveRate.toFixed(4)} {receivedCurrency}
                 </b>
@@ -132,6 +156,7 @@ export default function FeeFinderHome() {
 
               <div className="flex justify-between">
                 <span>Market benchmark</span>
+
                 <b>
                   1 {sentCurrency} = {result.benchmarkRate.toFixed(4)} {receivedCurrency}
                 </b>
@@ -144,16 +169,20 @@ export default function FeeFinderHome() {
 
               <div className="flex justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-3">
                 <span>Estimated hidden cost</span>
+
                 <b>
                   {result.hiddenCost.toFixed(2)} {sentCurrency}
                 </b>
               </div>
 
             </div>
+
           )}
 
         </div>
+
       </div>
+
     </main>
   );
 }
