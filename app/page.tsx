@@ -16,20 +16,20 @@ function formatMoney(value: number, currency: string) {
 }
 
 export default function FeeFinderHome() {
-  const [sent, setSent] = useState(4000);
-  const [received, setReceived] = useState(5000);
-  const [sentCurrency, setSentCurrency] = useState("GBP");
-  const [receivedCurrency, setReceivedCurrency] = useState("USD");
+  const [sent, setSent] = useState(5000);
+  const [received, setReceived] = useState(4600);
+  const [sentCurrency, setSentCurrency] = useState("USD");
+  const [receivedCurrency, setReceivedCurrency] = useState("EUR");
   const [provider, setProvider] = useState("HSBC");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [date, setDate] = useState("2025-03-10");
+  const [time, setTime] = useState("10:15");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const trustItems = useMemo(
     () => [
-      "Benchmark data from global FX markets",
+      "Minute benchmark for GBP, EUR and USD pairs",
       "Independent exchange rate comparison",
       "Built to increase transparency in currency pricing",
     ],
@@ -39,24 +39,50 @@ export default function FeeFinderHome() {
   async function calculate() {
     setLoading(true);
     setError("");
+    setResult(null);
 
     const effectiveRate = received / sent;
     let benchmarkRate = 0;
+    let benchmarkTimestamp = "";
+
+    const supportedPairs = [
+      "EUR/USD",
+      "USD/EUR",
+      "GBP/USD",
+      "USD/GBP",
+      "GBP/EUR",
+      "EUR/GBP",
+    ];
+
+    const isMinutePair = supportedPairs.includes(
+      `${sentCurrency}/${receivedCurrency}`
+    );
 
     try {
-      const res = await fetch(
-        `https://api.frankfurter.dev/v1/latest?base=${sentCurrency}&symbols=${receivedCurrency}`
-      );
-      const data = await res.json();
-
-      if (!data?.rates?.[receivedCurrency]) {
-        throw new Error("No market rate returned");
+      if (!date || !time) {
+        throw new Error("Please enter both date and time.");
       }
 
-      benchmarkRate = data.rates[receivedCurrency];
-    } catch (e) {
-      console.error("FX API error", e);
-      setError("Unable to retrieve the market benchmark right now. Please try again.");
+      if (!isMinutePair) {
+        throw new Error(
+          "Minute lookup is currently available for GBP, EUR and USD pairs only."
+        );
+      }
+
+      const res = await fetch(
+        `/api/fx-minute?base=${sentCurrency}&quote=${receivedCurrency}&date=${date}&time=${time}`
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Unable to retrieve market benchmark.");
+      }
+
+      benchmarkRate = data.benchmarkRate;
+      benchmarkTimestamp = data.benchmarkTimestamp;
+    } catch (e: any) {
+      setError(e.message || "Unable to retrieve market benchmark.");
       setLoading(false);
       return;
     }
@@ -67,6 +93,7 @@ export default function FeeFinderHome() {
     setResult({
       effectiveRate,
       benchmarkRate,
+      benchmarkTimestamp,
       markup,
       hiddenCost,
     });
@@ -79,13 +106,17 @@ export default function FeeFinderHome() {
     newReceived: number,
     newSentCurrency: string,
     newReceivedCurrency: string,
-    newProvider: string
+    newProvider: string,
+    newDate: string,
+    newTime: string
   ) {
     setSent(newSent);
     setReceived(newReceived);
     setSentCurrency(newSentCurrency);
     setReceivedCurrency(newReceivedCurrency);
     setProvider(newProvider);
+    setDate(newDate);
+    setTime(newTime);
     setResult(null);
     setError("");
   }
@@ -99,8 +130,12 @@ export default function FeeFinderHome() {
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#BDEFD7] bg-white shadow-sm">
               <div className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#006D77] text-[11px] font-bold text-[#006D77]">
-                <span className="absolute -left-1.5 top-[8px] text-[#00C981]">$</span>
-                <span className="absolute right-[-2px] top-[8px] text-[#006D77]">£</span>
+                <span className="absolute -left-1.5 top-[8px] text-[#00C981]">
+                  $
+                </span>
+                <span className="absolute right-[-2px] top-[8px] text-[#006D77]">
+                  £
+                </span>
                 <span className="absolute bottom-[-7px] right-[-10px] h-2.5 w-5 rotate-45 rounded-full border-t-2 border-[#006D77]" />
               </div>
             </div>
@@ -112,9 +147,18 @@ export default function FeeFinderHome() {
           </div>
 
           <div className="hidden items-center gap-8 text-sm font-medium text-slate-600 lg:flex">
-            <a href="#how-it-works" className="transition hover:text-[#006D77]">How it works</a>
-            <a href="#examples" className="transition hover:text-[#006D77]">Examples</a>
-            <a href="#about" className="transition hover:text-[#006D77]">About</a>
+            <a
+              href="#how-it-works"
+              className="transition hover:text-[#006D77]"
+            >
+              How it works
+            </a>
+            <a href="#examples" className="transition hover:text-[#006D77]">
+              Examples
+            </a>
+            <a href="#about" className="transition hover:text-[#006D77]">
+              About
+            </a>
             <button className="rounded-xl bg-[#006D77] px-4 py-2.5 text-white shadow-sm transition hover:bg-[#00555c]">
               Check my transfer
             </button>
@@ -125,7 +169,7 @@ export default function FeeFinderHome() {
       <section className="mx-auto grid max-w-7xl gap-12 px-6 py-16 lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-20">
         <div className="pt-2 lg:pt-8">
           <div className="mb-5 inline-flex rounded-full border border-[#BDEFD7] bg-white px-3 py-1.5 text-sm font-semibold text-[#006D77] shadow-sm">
-            Currency transfer transparency
+            Minute-by-minute GBP / EUR / USD benchmark
           </div>
 
           <h1 className="max-w-2xl text-5xl font-bold leading-[1.02] tracking-[-0.03em] text-slate-950 md:text-6xl">
@@ -133,12 +177,16 @@ export default function FeeFinderHome() {
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
-            Compare your exchange rate with the real market rate in seconds and see the estimated hidden cost of your transfer.
+            Compare your exchange rate with the benchmark rate at that exact
+            minute and see the estimated hidden cost of your transfer.
           </p>
 
           <div className="mt-8 space-y-3">
             {trustItems.map((item) => (
-              <div key={item} className="flex items-center gap-3 text-[15px] text-slate-700">
+              <div
+                key={item}
+                className="flex items-center gap-3 text-[15px] text-slate-700"
+              >
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F2FFF8] text-[#006D77]">
                   ✓
                 </div>
@@ -147,7 +195,10 @@ export default function FeeFinderHome() {
             ))}
           </div>
 
-          <div id="examples" className="mt-10 rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)]">
+          <div
+            id="examples"
+            className="mt-10 rounded-[28px] border border-slate-200 bg-white p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)]"
+          >
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -164,12 +215,26 @@ export default function FeeFinderHome() {
 
             <div className="space-y-3">
               <button
-                onClick={() => loadExample(4000, 5000, "GBP", "USD", "HSBC")}
+                onClick={() =>
+                  loadExample(
+                    5000,
+                    4600,
+                    "USD",
+                    "EUR",
+                    "HSBC",
+                    "2025-03-10",
+                    "10:15"
+                  )
+                }
                 className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-4 text-left transition hover:border-[#006D77] hover:bg-white"
               >
                 <div>
-                  <div className="font-semibold text-slate-900">£4,000 → $5,000</div>
-                  <div className="mt-1 text-sm text-slate-500">Personal transfer</div>
+                  <div className="font-semibold text-slate-900">
+                    $5,000 → €4,600
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    Personal transfer
+                  </div>
                 </div>
                 <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
                   HSBC
@@ -177,12 +242,26 @@ export default function FeeFinderHome() {
               </button>
 
               <button
-                onClick={() => loadExample(10000, 11650, "GBP", "EUR", "Santander")}
+                onClick={() =>
+                  loadExample(
+                    10000,
+                    7900,
+                    "GBP",
+                    "USD",
+                    "Santander",
+                    "2025-03-10",
+                    "11:30"
+                  )
+                }
                 className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-4 text-left transition hover:border-[#006D77] hover:bg-white"
               >
                 <div>
-                  <div className="font-semibold text-slate-900">£10,000 → €11,650</div>
-                  <div className="mt-1 text-sm text-slate-500">Property payment</div>
+                  <div className="font-semibold text-slate-900">
+                    £10,000 → $7,900
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    International payment
+                  </div>
                 </div>
                 <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
                   Santander
@@ -190,12 +269,26 @@ export default function FeeFinderHome() {
               </button>
 
               <button
-                onClick={() => loadExample(50000, 63200, "GBP", "USD", "Barclays")}
+                onClick={() =>
+                  loadExample(
+                    50000,
+                    58500,
+                    "EUR",
+                    "USD",
+                    "Barclays",
+                    "2025-03-10",
+                    "14:45"
+                  )
+                }
                 className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-4 text-left transition hover:border-[#006D77] hover:bg-white"
               >
                 <div>
-                  <div className="font-semibold text-slate-900">£50,000 → $63,200</div>
-                  <div className="mt-1 text-sm text-slate-500">Large transfer</div>
+                  <div className="font-semibold text-slate-900">
+                    €50,000 → $58,500
+                  </div>
+                  <div className="mt-1 text-sm text-slate-500">
+                    Large transfer
+                  </div>
                 </div>
                 <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm">
                   Barclays
@@ -214,7 +307,9 @@ export default function FeeFinderHome() {
                 <div className="inline-flex rounded-full bg-[#F2FFF8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#006D77]">
                   Live calculator
                 </div>
-                <h2 className="mt-3 text-2xl font-semibold text-slate-950">Check your transfer</h2>
+                <h2 className="mt-3 text-2xl font-semibold text-slate-950">
+                  Check your transfer
+                </h2>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-right text-sm">
                 <div className="text-slate-500">Provider</div>
@@ -224,7 +319,9 @@ export default function FeeFinderHome() {
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-600">You sent</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-600">
+                  You sent
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="number"
@@ -245,7 +342,9 @@ export default function FeeFinderHome() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-600">Recipient received</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-600">
+                  Recipient received
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="number"
@@ -258,16 +357,18 @@ export default function FeeFinderHome() {
                     onChange={(e) => setReceivedCurrency(e.target.value)}
                     className="rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-[#006D77]"
                   >
+                    <option>GBP</option>
                     <option>USD</option>
                     <option>EUR</option>
-                    <option>GBP</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-600">Date</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-600">
+                    Date
+                  </label>
                   <input
                     type="date"
                     value={date}
@@ -277,7 +378,9 @@ export default function FeeFinderHome() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-600">Time (optional)</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-600">
+                    Time
+                  </label>
                   <input
                     type="time"
                     value={time}
@@ -288,7 +391,9 @@ export default function FeeFinderHome() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-600">Provider</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-600">
+                  Provider
+                </label>
                 <select
                   value={provider}
                   onChange={(e) => setProvider(e.target.value)}
@@ -310,6 +415,11 @@ export default function FeeFinderHome() {
                 {loading ? "Checking market rate..." : "Check my transfer"}
               </button>
 
+              <p className="text-sm text-slate-500">
+                Minute-by-minute benchmark currently available for GBP, EUR and
+                USD pairs.
+              </p>
+
               {error && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
@@ -320,34 +430,51 @@ export default function FeeFinderHome() {
             {result && (
               <div className="mt-8 border-t border-slate-100 pt-6">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-slate-950">Results</h3>
+                  <h3 className="text-xl font-semibold text-slate-950">
+                    Results
+                  </h3>
                   <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
-                    Live benchmark
+                    Minute benchmark
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3.5">
-                    <span className="text-slate-600">Exchange rate you received</span>
+                    <span className="text-slate-600">
+                      Exchange rate you received
+                    </span>
                     <span className="font-semibold text-slate-900">
-                      1 {sentCurrency} = {result.effectiveRate.toFixed(4)} {receivedCurrency}
+                      1 {sentCurrency} = {result.effectiveRate.toFixed(4)}{" "}
+                      {receivedCurrency}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3.5">
                     <span className="text-slate-600">Market benchmark</span>
                     <span className="font-semibold text-slate-900">
-                      1 {sentCurrency} = {result.benchmarkRate.toFixed(4)} {receivedCurrency}
+                      1 {sentCurrency} = {result.benchmarkRate.toFixed(4)}{" "}
+                      {receivedCurrency}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3.5">
+                    <span className="text-slate-600">Benchmark timestamp</span>
+                    <span className="font-semibold text-slate-900">
+                      {result.benchmarkTimestamp} UTC
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3.5">
                     <span className="text-slate-600">Estimated markup</span>
-                    <span className="font-semibold text-slate-900">{result.markup.toFixed(2)}%</span>
+                    <span className="font-semibold text-slate-900">
+                      {result.markup.toFixed(2)}%
+                    </span>
                   </div>
 
                   <div className="flex items-center justify-between rounded-2xl border border-[#BDEFD7] bg-[#F2FFF8] px-4 py-4">
-                    <span className="text-slate-700">Estimated hidden cost</span>
+                    <span className="text-slate-700">
+                      Estimated hidden cost
+                    </span>
                     <span className="text-lg font-semibold text-[#006D77]">
                       {formatMoney(result.hiddenCost, sentCurrency)}
                     </span>
@@ -355,7 +482,8 @@ export default function FeeFinderHome() {
                 </div>
 
                 <p className="mt-4 text-sm leading-6 text-slate-500">
-                  This is an estimate based on the current mid-market benchmark rate.
+                  This is an estimate based on the benchmark rate for the
+                  selected minute.
                 </p>
               </div>
             )}
@@ -363,16 +491,20 @@ export default function FeeFinderHome() {
         </div>
       </section>
 
-      <section id="how-it-works" className="mx-auto max-w-7xl px-6 pb-20 lg:px-8">
+      <section
+        id="how-it-works"
+        className="mx-auto max-w-7xl px-6 pb-20 lg:px-8"
+      >
         <div className="mb-8 max-w-2xl">
           <div className="mb-3 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 shadow-sm">
             How it works
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">
-            Simple, clear, and built for real transfers
+            Minute-level benchmarking for real transfers
           </h2>
           <p className="mt-3 text-lg text-slate-600">
-            FeeFinder helps you understand whether the exchange rate on your transfer was fair.
+            FeeFinder checks your transfer against the benchmark market rate at
+            the selected minute.
           </p>
         </div>
 
@@ -381,9 +513,12 @@ export default function FeeFinderHome() {
             <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F2FFF8] text-lg font-semibold text-[#006D77]">
               1
             </div>
-            <h3 className="mb-2 text-xl font-semibold text-slate-950">Enter your transfer</h3>
+            <h3 className="mb-2 text-xl font-semibold text-slate-950">
+              Enter your transfer
+            </h3>
             <p className="leading-7 text-slate-600">
-              Add what you sent and what the recipient received using the details from your transfer confirmation.
+              Add what you sent, what the recipient received, plus the transfer
+              date and time.
             </p>
           </div>
 
@@ -391,9 +526,12 @@ export default function FeeFinderHome() {
             <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F2FFF8] text-lg font-semibold text-[#006D77]">
               2
             </div>
-            <h3 className="mb-2 text-xl font-semibold text-slate-950">We check the market rate</h3>
+            <h3 className="mb-2 text-xl font-semibold text-slate-950">
+              We fetch the minute benchmark
+            </h3>
             <p className="leading-7 text-slate-600">
-              FeeFinder compares your effective exchange rate against a live market benchmark from independent FX data.
+              FeeFinder uses a minute-level market benchmark to compare your
+              effective exchange rate.
             </p>
           </div>
 
@@ -401,9 +539,12 @@ export default function FeeFinderHome() {
             <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F2FFF8] text-lg font-semibold text-[#006D77]">
               3
             </div>
-            <h3 className="mb-2 text-xl font-semibold text-slate-950">See the hidden cost</h3>
+            <h3 className="mb-2 text-xl font-semibold text-slate-950">
+              See the hidden cost
+            </h3>
             <p className="leading-7 text-slate-600">
-              Instantly see the estimated markup and hidden cost so you can judge whether the rate you got was fair.
+              Instantly see the estimated markup and hidden cost so you can
+              judge whether the rate was fair.
             </p>
           </div>
         </div>
@@ -411,8 +552,10 @@ export default function FeeFinderHome() {
 
       <section id="about" className="border-t border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 text-sm text-slate-500 lg:grid-cols-[1fr_auto] lg:px-8">
-          <div>FeeFinder is built to make currency pricing easier to understand.</div>
-          <div>Live benchmark powered by independent market data.</div>
+          <div>
+            FeeFinder is built to make currency pricing easier to understand.
+          </div>
+          <div>Minute benchmark powered by Twelve Data.</div>
         </div>
       </section>
     </main>
