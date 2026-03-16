@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
 
 const currencySymbols: Record<string, string> = {
   GBP: "£",
@@ -35,6 +36,10 @@ export default function FeeFinderHome() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+
   const trustItems = useMemo(
     () => [
       "Minute benchmark for GBP, EUR and USD pairs",
@@ -48,6 +53,7 @@ export default function FeeFinderHome() {
     setLoading(true);
     setError("");
     setResult(null);
+    setSaveMessage("");
 
     const effectiveRate = received / sent;
 
@@ -99,6 +105,48 @@ export default function FeeFinderHome() {
     setLoading(false);
   }
 
+  async function saveResult() {
+    if (!result) {
+      setSaveMessage("Run the transfer check first.");
+      return;
+    }
+
+    if (!email) {
+      setSaveMessage("Please enter your email.");
+      return;
+    }
+
+    setSaving(true);
+    setSaveMessage("");
+
+    const { error } = await supabase.from("transfer_checks").insert([
+      {
+        email,
+        amount_sent: sent,
+        amount_received: received,
+        sent_currency: sentCurrency,
+        received_currency: receivedCurrency,
+        provider,
+        transfer_date: date,
+        transfer_time: time,
+        effective_rate: result.effectiveRate,
+        benchmark_rate: result.benchmarkRate,
+        benchmark_timestamp: result.benchmarkTimestamp,
+        markup_percent: result.markup,
+        hidden_cost: result.hiddenCost,
+      },
+    ]);
+
+    if (error) {
+      setSaveMessage("Could not save result. Please try again.");
+    } else {
+      setSaveMessage("Result saved successfully.");
+      setEmail("");
+    }
+
+    setSaving(false);
+  }
+
   function loadExample(
     newSent: number,
     newReceived: number,
@@ -113,6 +161,7 @@ export default function FeeFinderHome() {
     setProvider(newProvider);
     setResult(null);
     setError("");
+    setSaveMessage("");
   }
 
   return (
@@ -455,6 +504,38 @@ export default function FeeFinderHome() {
                   This is an estimate based on the benchmark rate for the
                   selected minute.
                 </p>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+                  <label className="mb-2 block text-sm font-medium text-slate-700">
+                    Save this result
+                  </label>
+
+                  <p className="mb-3 text-sm text-slate-500">
+                    Enter your email to save this transfer check.
+                  </p>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-[#006D77]"
+                    />
+
+                    <button
+                      onClick={saveResult}
+                      disabled={saving}
+                      className="rounded-xl bg-[#006D77] px-5 py-3 font-medium text-white transition hover:bg-[#00555c] disabled:opacity-60"
+                    >
+                      {saving ? "Saving..." : "Save my result"}
+                    </button>
+                  </div>
+
+                  {saveMessage && (
+                    <p className="mt-3 text-sm text-slate-600">{saveMessage}</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
