@@ -21,8 +21,16 @@ export default function FeeFinderHome() {
   const [sentCurrency, setSentCurrency] = useState("USD");
   const [receivedCurrency, setReceivedCurrency] = useState("EUR");
   const [provider, setProvider] = useState("HSBC");
-  const [date, setDate] = useState("2025-03-10");
-  const [time, setTime] = useState("10:15");
+
+  const [date, setDate] = useState(() => {
+    return new Date().toISOString().split("T")[0];
+  });
+
+  const [time, setTime] = useState(() => {
+    const now = new Date();
+    return now.toTimeString().slice(0, 5);
+  });
+
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -42,8 +50,6 @@ export default function FeeFinderHome() {
     setResult(null);
 
     const effectiveRate = received / sent;
-    let benchmarkRate = 0;
-    let benchmarkTimestamp = "";
 
     const supportedPairs = [
       "EUR/USD",
@@ -54,21 +60,17 @@ export default function FeeFinderHome() {
       "EUR/GBP",
     ];
 
-    const isMinutePair = supportedPairs.includes(
-      `${sentCurrency}/${receivedCurrency}`
-    );
+    const pair = `${sentCurrency}/${receivedCurrency}`;
+
+    if (!supportedPairs.includes(pair)) {
+      setError(
+        "Minute lookup currently available for GBP, EUR and USD pairs only."
+      );
+      setLoading(false);
+      return;
+    }
 
     try {
-      if (!date || !time) {
-        throw new Error("Please enter both date and time.");
-      }
-
-      if (!isMinutePair) {
-        throw new Error(
-          "Minute lookup is currently available for GBP, EUR and USD pairs only."
-        );
-      }
-
       const res = await fetch(
         `/api/fx-minute?base=${sentCurrency}&quote=${receivedCurrency}&date=${date}&time=${time}`
       );
@@ -76,27 +78,23 @@ export default function FeeFinderHome() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Unable to retrieve market benchmark.");
+        throw new Error(data.error || "Unable to retrieve benchmark.");
       }
 
-      benchmarkRate = data.benchmarkRate;
-      benchmarkTimestamp = data.benchmarkTimestamp;
+      const benchmarkRate = data.benchmarkRate;
+      const markup = ((benchmarkRate - effectiveRate) / benchmarkRate) * 100;
+      const hiddenCost = Math.abs((benchmarkRate - effectiveRate) * sent);
+
+      setResult({
+        effectiveRate,
+        benchmarkRate,
+        benchmarkTimestamp: data.benchmarkTimestamp,
+        markup,
+        hiddenCost,
+      });
     } catch (e: any) {
-      setError(e.message || "Unable to retrieve market benchmark.");
-      setLoading(false);
-      return;
+      setError(e.message || "Error retrieving benchmark");
     }
-
-    const markup = ((benchmarkRate - effectiveRate) / benchmarkRate) * 100;
-    const hiddenCost = Math.abs((benchmarkRate - effectiveRate) * sent);
-
-    setResult({
-      effectiveRate,
-      benchmarkRate,
-      benchmarkTimestamp,
-      markup,
-      hiddenCost,
-    });
 
     setLoading(false);
   }
@@ -106,17 +104,13 @@ export default function FeeFinderHome() {
     newReceived: number,
     newSentCurrency: string,
     newReceivedCurrency: string,
-    newProvider: string,
-    newDate: string,
-    newTime: string
+    newProvider: string
   ) {
     setSent(newSent);
     setReceived(newReceived);
     setSentCurrency(newSentCurrency);
     setReceivedCurrency(newReceivedCurrency);
     setProvider(newProvider);
-    setDate(newDate);
-    setTime(newTime);
     setResult(null);
     setError("");
   }
@@ -216,15 +210,7 @@ export default function FeeFinderHome() {
             <div className="space-y-3">
               <button
                 onClick={() =>
-                  loadExample(
-                    5000,
-                    4600,
-                    "USD",
-                    "EUR",
-                    "HSBC",
-                    "2025-03-10",
-                    "10:15"
-                  )
+                  loadExample(5000, 4600, "USD", "EUR", "HSBC")
                 }
                 className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-4 text-left transition hover:border-[#006D77] hover:bg-white"
               >
@@ -243,15 +229,7 @@ export default function FeeFinderHome() {
 
               <button
                 onClick={() =>
-                  loadExample(
-                    10000,
-                    7900,
-                    "GBP",
-                    "USD",
-                    "Santander",
-                    "2025-03-10",
-                    "11:30"
-                  )
+                  loadExample(10000, 7900, "GBP", "USD", "Santander")
                 }
                 className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-4 text-left transition hover:border-[#006D77] hover:bg-white"
               >
@@ -270,15 +248,7 @@ export default function FeeFinderHome() {
 
               <button
                 onClick={() =>
-                  loadExample(
-                    50000,
-                    58500,
-                    "EUR",
-                    "USD",
-                    "Barclays",
-                    "2025-03-10",
-                    "14:45"
-                  )
+                  loadExample(50000, 58500, "EUR", "USD", "Barclays")
                 }
                 className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-4 text-left transition hover:border-[#006D77] hover:bg-white"
               >
